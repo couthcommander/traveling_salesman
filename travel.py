@@ -3,6 +3,9 @@ import scipy.spatial.distance as ssd
 import numpy as np
 import pandas as pd
 
+# returnHome is lame, but sometimes the salesman wants to end at the city from whence he came
+returnHome = True
+
 def parse_latlon(x):
     d, m, s = map(float, x.split(':'))
     ms = m/60. + s/3600.
@@ -12,9 +15,15 @@ def parse_latlon(x):
 
 def path_length(citylist, distmatrix):
   n = len(citylist)
-  lens = [0 for i in range(n-1)]
+  if returnHome:
+    lens = [0 for i in range(n)]
+  else:
+    lens = [0 for i in range(n-1)]
   for i in range(n-1):
     lens[i] = distmatrix[citylist[i]][citylist[i+1]]
+  # add distance of last city to first city
+  if returnHome:
+    lens[n-1] = distmatrix[citylist[n-1]][citylist[0]]
   return lens
 
 def energy(citylist, distmatrix):
@@ -38,6 +47,9 @@ n = len(cities)
 def neighbor(x, distmat, k=1):
   # get distance of each route
   paths = np.array(path_length(x, distmat))
+  # remove last path
+  if returnHome:
+    paths.resize(len(paths)-1)
   y = x.copy()
   if k > 1:
     # discrete uniform choice
@@ -92,12 +104,18 @@ iterations = 20
 cooling = [75]*(iterations/4) + [125]*(iterations/4) + [175]*(iterations/4) + [250]*(iterations/4)
 tau = [50000 * 0.9**i for i in range(iterations)]
 
-s = None
-#s = np.array(range(n))
+if returnHome:
+  s = np.array(range(n))
+else:
+  s = None
 nochange = i = past = 0
 answer = None
 global_min = pow(10, 8)
-cheater = range(n)
+# "cheat"-ing when you returnHome doesn't help much
+if returnHome:
+  cheater = range(5)
+else:
+  cheater = range(n)
 while nochange < 8:
   s, d = sa_go(distmat, cooling, tau, s, nk=i%4+1)
   if (i % 10) == 0:
@@ -119,15 +137,17 @@ while nochange < 8:
     print cheater
     s = np.concatenate([s[range(split,n)], s[range(0,split)]])
     nochange = 0
-  global_min = min(global_min, d)
   if d < global_min:
     global_min = d
     answer = s.copy()
   i += 1
 
-print s
+print answer
 print global_min
 
 # best so far
 # 1102786 ~= 110 unscaled
 #[13 16 17 15 20 25 24 23 22 21 18 19 14 11  9  8  7  5  6  3  2  1  0  4 10 12]
+# with returnHome set...
+# 1260174
+# huge = np.array([0,1,2,3,6,5,7,8,9,11,14,13,16,17,18,19,21,22,23,24,25,20,15,12,10,4])
